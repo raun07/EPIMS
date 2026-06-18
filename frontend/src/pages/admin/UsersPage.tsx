@@ -7,7 +7,7 @@ import { Button, Card, CardHeader, EmptyState, TableSkeleton } from "@/component
 
 async function fetchUsers() {
   const r = await api.get("/auth/users");
-  return r.data as any[];
+  return (r.data?.data ?? r.data ?? []) as any[];
 }
 
 const ALL_ROLES = [

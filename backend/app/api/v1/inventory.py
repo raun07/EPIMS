@@ -21,6 +21,63 @@ from app.services.inventory_service import InventoryService
 router = APIRouter(prefix="/inventory", tags=["Inventory"])
 
 
+@router.get("/movements", response_model=list[StockMovementResponse])
+async def list_all_movements(
+    current_user: CurrentUser,
+    page: int = 1,
+    per_page: int = 50,
+    _: None = require_permission("inventory", "read"),
+):
+    """List recent stock movements across all materials."""
+    from sqlalchemy import select, desc
+    from sqlalchemy.orm import selectinload
+    from app.domain.inventory.models import StockMovement
+    from app.database import AsyncSessionLocal
+
+    async with AsyncSessionLocal() as session:
+        stmt = (
+            select(StockMovement)
+            .options(
+                selectinload(StockMovement.material),
+                selectinload(StockMovement.to_warehouse),
+            )
+            .order_by(desc(StockMovement.created_at))
+            .offset((page - 1) * per_page)
+            .limit(per_page)
+        )
+        result = await session.execute(stmt)
+        movements = result.scalars().all()
+
+        return [
+            StockMovementResponse(
+                id=m.id,
+                movement_number=m.movement_number,
+                movement_type=m.movement_type,
+                movement_date=m.movement_date,
+                material_id=m.material_id,
+                quantity=m.quantity,
+                unit_price=m.unit_price,
+                total_value=m.total_value,
+                currency=m.currency,
+                reference_doc_type=m.reference_doc_type,
+                reference_doc_id=m.reference_doc_id,
+                batch_number=m.batch_number,
+                created_at=m.created_at,
+                material={
+                    "id": str(m.material.id),
+                    "material_number": m.material.material_number,
+                    "description": m.material.description,
+                } if m.material else None,
+                to_warehouse={
+                    "id": str(m.to_warehouse.id),
+                    "code": m.to_warehouse.code,
+                    "name": m.to_warehouse.name,
+                } if m.to_warehouse else None,
+            )
+            for m in movements
+        ]
+
+
 @router.get("/materials/{material_id}/stock", response_model=list[StockResponse])
 async def get_material_stock(
     material_id: UUID,

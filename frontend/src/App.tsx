@@ -12,6 +12,7 @@ import PRDetailPage from "@/pages/procurement/PRDetailPage";
 import PRCreatePage from "@/pages/procurement/PRCreatePage";
 import POListPage from "@/pages/procurement/POListPage";
 import PODetailPage from "@/pages/procurement/PODetailPage";
+import GRNListPage from "@/pages/procurement/GRNListPage";
 import GRNCreatePage from "@/pages/procurement/GRNCreatePage";
 import GRNDetailPage from "@/pages/procurement/GRNDetailPage";
 
@@ -22,13 +23,19 @@ import InvoiceDetailPage from "@/pages/invoice/InvoiceDetailPage";
 // Inventory
 import StockOverviewPage from "@/pages/inventory/StockOverviewPage";
 import LowStockPage from "@/pages/inventory/LowStockPage";
+import MovementsPage from "@/pages/inventory/MovementsPage";
 
 // Reports
 import ReportsDashboardPage from "@/pages/reports/ReportsDashboardPage";
+import PRSummaryReportPage from "@/pages/reports/PRSummaryReportPage";
+import POSummaryReportPage from "@/pages/reports/POSummaryReportPage";
+import VendorPerformanceReportPage from "@/pages/reports/VendorPerformanceReportPage";
+import InvoiceAgingReportPage from "@/pages/reports/InvoiceAgingReportPage";
 
 // Master Data
 import MaterialsPage from "@/pages/master/MaterialsPage";
 import VendorsPage from "@/pages/master/VendorsPage";
+import WarehousesPage from "@/pages/master/WarehousesPage";
 
 // Approvals + Admin
 import ApprovalQueuePage from "@/pages/approvals/ApprovalQueuePage";
@@ -63,6 +70,7 @@ export default function App() {
       <Route path="/procurement/pr/:id" element={<R el={<PRDetailPage />} />} />
       <Route path="/procurement/po" element={<R el={<POListPage />} />} />
       <Route path="/procurement/po/:id" element={<R el={<PODetailPage />} />} />
+      <Route path="/procurement/grn" element={<R el={<GRNListPage />} />} />
       <Route path="/procurement/grn/new" element={<R el={<GRNCreatePage />} />} />
       <Route path="/procurement/grn/:id" element={<R el={<GRNDetailPage />} />} />
 
@@ -73,13 +81,19 @@ export default function App() {
       {/* Inventory */}
       <Route path="/inventory/stock" element={<R el={<StockOverviewPage />} />} />
       <Route path="/inventory/alerts" element={<R el={<LowStockPage />} />} />
+      <Route path="/inventory/movements" element={<R el={<MovementsPage />} />} />
 
       {/* Reports */}
       <Route path="/reports/dashboard" element={<R el={<ReportsDashboardPage />} />} />
+      <Route path="/reports/pr" element={<R el={<PRSummaryReportPage />} />} />
+      <Route path="/reports/po" element={<R el={<POSummaryReportPage />} />} />
+      <Route path="/reports/vendor" element={<R el={<VendorPerformanceReportPage />} />} />
+      <Route path="/reports/aging" element={<R el={<InvoiceAgingReportPage />} />} />
 
       {/* Master Data */}
       <Route path="/master/materials" element={<R el={<MaterialsPage />} />} />
       <Route path="/master/vendors" element={<R el={<VendorsPage />} />} />
+      <Route path="/master/warehouses" element={<R el={<WarehousesPage />} />} />
 
       {/* Approvals */}
       <Route path="/approvals/queue" element={<R el={<ApprovalQueuePage />} />} />

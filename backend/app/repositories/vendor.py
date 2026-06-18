@@ -11,6 +11,24 @@ from app.repositories.base import AbstractRepository
 class VendorRepository(AbstractRepository[Vendor]):
     model = Vendor
 
+    async def list(self, *filters, order_by=None, page: int = 1, per_page: int = 20):
+        """Override to eager-load addresses and contacts relationships."""
+        stmt = (
+            select(Vendor)
+            .options(
+                selectinload(Vendor.addresses),
+                selectinload(Vendor.contacts),
+            )
+            .offset((page - 1) * per_page)
+            .limit(per_page)
+        )
+        for f in filters:
+            stmt = stmt.where(f)
+        if order_by is not None:
+            stmt = stmt.order_by(order_by)
+        result = await self.session.execute(stmt)
+        return result.scalars().all()
+
     async def get_by_number(self, vendor_number: str) -> Vendor | None:
         return await self.get_by(vendor_number=vendor_number)
 

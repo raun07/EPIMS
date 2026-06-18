@@ -1,7 +1,7 @@
 """Inventory schemas."""
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from uuid import UUID
 
@@ -71,7 +71,9 @@ class StockMovementResponse(BaseSchema):
     reference_doc_type: str | None
     reference_doc_id: UUID | None
     batch_number: str | None
-    created_at: date
+    created_at: datetime
+    material: dict | None = None
+    to_warehouse: dict | None = None
 
 
 class LowStockAlert(BaseSchema):

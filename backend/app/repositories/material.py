@@ -23,6 +23,24 @@ class MaterialGroupRepository(AbstractRepository[MaterialGroup]):
 class MaterialRepository(AbstractRepository[Material]):
     model = Material
 
+    async def list(self, *filters, order_by=None, page: int = 1, per_page: int = 20):
+        """Override to eager-load material_group and base_uom relationships."""
+        stmt = (
+            select(Material)
+            .options(
+                selectinload(Material.material_group),
+                selectinload(Material.base_uom),
+            )
+            .offset((page - 1) * per_page)
+            .limit(per_page)
+        )
+        for f in filters:
+            stmt = stmt.where(f)
+        if order_by is not None:
+            stmt = stmt.order_by(order_by)
+        result = await self.session.execute(stmt)
+        return result.scalars().all()
+
     async def get_by_number(self, material_number: str) -> Material | None:
         return await self.get_by(material_number=material_number)
 

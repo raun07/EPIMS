@@ -13,6 +13,21 @@ from app.repositories.base import AbstractRepository
 class UserRepository(AbstractRepository[User]):
     model = User
 
+    async def list(self, *filters, order_by=None, page: int = 1, per_page: int = 20):
+        """Override to eager-load roles relationship."""
+        stmt = (
+            select(User)
+            .options(selectinload(User.roles))
+            .offset((page - 1) * per_page)
+            .limit(per_page)
+        )
+        for f in filters:
+            stmt = stmt.where(f)
+        if order_by is not None:
+            stmt = stmt.order_by(order_by)
+        result = await self.session.execute(stmt)
+        return result.scalars().all()
+
     async def get_by_email(self, email: str) -> User | None:
         stmt = (
             select(User)

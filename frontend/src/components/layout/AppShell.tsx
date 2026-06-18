@@ -2,19 +2,18 @@ import React, { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
-  FileText,
   ShoppingCart,
   Package,
   Receipt,
   BarChart3,
   Database,
   Users,
+  CheckSquare,
   ChevronDown,
   LogOut,
   Bell,
   Menu,
-  X,
-  AlertTriangle,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/store/authStore";
@@ -25,7 +24,6 @@ interface NavItem {
   href?: string;
   icon: React.ReactNode;
   children?: { label: string; href: string }[];
-  permission?: string;
 }
 
 const nav: NavItem[] = [
@@ -45,19 +43,15 @@ const nav: NavItem[] = [
     children: [
       { label: "Stock Overview", href: "/inventory/stock" },
       { label: "Low Stock Alerts", href: "/inventory/alerts" },
-      { label: "Movements", href: "/inventory/movements" },
     ],
   },
   { label: "Invoices", href: "/invoices", icon: <Receipt className="h-4 w-4" /> },
+  { label: "Approvals", href: "/approvals/queue", icon: <CheckSquare className="h-4 w-4" /> },
   {
     label: "Reports",
     icon: <BarChart3 className="h-4 w-4" />,
     children: [
-      { label: "Dashboard KPIs", href: "/reports/dashboard" },
-      { label: "PR Summary", href: "/reports/pr" },
-      { label: "PO Summary", href: "/reports/po" },
-      { label: "Vendor Performance", href: "/reports/vendor" },
-      { label: "Invoice Aging", href: "/reports/aging" },
+      { label: "Analytics", href: "/reports/dashboard" },
     ],
   },
   {
@@ -66,10 +60,18 @@ const nav: NavItem[] = [
     children: [
       { label: "Materials", href: "/master/materials" },
       { label: "Vendors", href: "/master/vendors" },
-      { label: "Warehouses", href: "/master/warehouses" },
     ],
   },
   { label: "Users", href: "/admin/users", icon: <Users className="h-4 w-4" /> },
+  {
+    label: "AI Copilot",
+    icon: <Sparkles className="h-4 w-4" />,
+    children: [
+      { label: "Procurement Assistant", href: "/ai/copilot" },
+      { label: "Analytics Assistant", href: "/ai/analytics" },
+      { label: "Document Intelligence", href: "/ai/documents" },
+    ],
+  },
 ];
 
 function NavGroup({ item }: { item: NavItem }) {

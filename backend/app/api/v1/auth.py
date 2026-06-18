@@ -85,6 +85,34 @@ async def change_password(
     return {"success": True, "message": "Password changed successfully"}
 
 
+@router.get("/users")
+async def list_users(
+    current_user: CurrentUser,
+    page: int = 1,
+    per_page: int = 20,
+):
+    """List all users (superuser only)."""
+    from sqlalchemy import select
+    from sqlalchemy.orm import selectinload
+    from app.domain.auth.models import User
+    from app.database import AsyncSessionLocal
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(
+            select(User)
+            .options(selectinload(User.roles))
+            .order_by(User.created_at.desc())
+            .offset((page - 1) * per_page).limit(per_page)
+        )
+        users = result.scalars().all()
+        count = await session.execute(select(User))
+        total = len(count.scalars().all())
+        data = [UserResponse.from_orm_user(u) for u in users]
+    return {
+        "data": data,
+        "meta": {"total": total, "page": page, "per_page": per_page}
+    }
+
+
 @router.post("/users", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def register_user(
     body: UserCreate,

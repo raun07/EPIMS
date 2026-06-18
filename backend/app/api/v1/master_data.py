@@ -193,3 +193,72 @@ async def unblock_vendor(
 # Wire sub-routers
 router.include_router(mat_router)
 router.include_router(ven_router)
+
+
+# ── Warehouses ───────────────────────────────────────────────────────────────
+
+wh_router = APIRouter(prefix="/warehouses")
+
+
+@wh_router.get("")
+async def list_warehouses(
+    current_user: CurrentUser,
+    _: None = require_permission("materials", "read"),
+):
+    """List all warehouses with storage location counts."""
+    from sqlalchemy import select, func
+    from app.domain.warehouse.models import Warehouse, StorageLocation
+    from app.database import AsyncSessionLocal
+
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(select(Warehouse).order_by(Warehouse.code))
+        warehouses = result.scalars().all()
+
+        data = []
+        for w in warehouses:
+            loc_count = await session.execute(
+                select(func.count()).select_from(StorageLocation).where(
+                    StorageLocation.warehouse_id == w.id
+                )
+            )
+            data.append({
+                "id": str(w.id),
+                "code": w.code,
+                "name": w.name,
+                "warehouse_type": w.warehouse_type,
+                "address": w.address,
+                "is_active": w.is_active,
+                "storage_location_count": loc_count.scalar_one(),
+            })
+        return {"data": data, "meta": {"total": len(data)}}
+
+
+@wh_router.post("", status_code=status.HTTP_201_CREATED)
+async def create_warehouse(
+    current_user: CurrentUser,
+    code: str,
+    name: str,
+    warehouse_type: str = "STANDARD",
+    address: str | None = None,
+    _: None = require_permission("materials", "create"),
+):
+    """Create a new warehouse."""
+    import uuid
+    from app.domain.warehouse.models import Warehouse
+    from app.database import AsyncSessionLocal
+
+    async with AsyncSessionLocal() as session:
+        wh = Warehouse(
+            id=uuid.uuid4(),
+            code=code,
+            name=name,
+            warehouse_type=warehouse_type,
+            address=address,
+            is_active=True,
+        )
+        session.add(wh)
+        await session.commit()
+        return {"id": str(wh.id), "code": wh.code, "name": wh.name}
+
+
+router.include_router(wh_router)
