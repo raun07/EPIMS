@@ -1,119 +1,151 @@
 # EPIMS — Enterprise Procurement & Inventory Management System
 
-SAP MM-inspired full-stack procure-to-pay platform built with FastAPI + React.
+> A production-grade SAP MM-equivalent built with Python, React, and AI — from scratch.
 
-## Architecture
+![Python](https://img.shields.io/badge/Python-3.12-blue) ![FastAPI](https://img.shields.io/badge/FastAPI-0.111-green) ![React](https://img.shields.io/badge/React-18-blue) ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-blue) ![Docker](https://img.shields.io/badge/Docker-Compose-blue)
 
-```
-epims/
-├── backend/              FastAPI 0.111 · Python 3.12 · SQLAlchemy 2.0 async
-│   ├── app/
-│   │   ├── core/         Security · UoW · Events · Exceptions · Dependencies
-│   │   ├── domain/       SQLAlchemy models (auth, procurement, inventory, invoice…)
-│   │   ├── repositories/ Generic + domain-specific data access
-│   │   ├── services/     Business logic (PR, PO, GRN, Invoice 3-way match, Inventory…)
-│   │   ├── api/v1/       FastAPI routers (auth, procurement, invoice, inventory, reports)
-│   │   ├── schemas/      Pydantic v2 request/response models
-│   │   └── tasks/        Celery tasks (email, inventory, reporting)
-│   ├── alembic/          Database migrations
-│   ├── tests/            Unit + integration test suite
-│   └── scripts/seed.py   Bootstrap data
-│
-├── frontend/             React 18 · TypeScript · Vite · Zustand · React Query
-│   └── src/
-│       ├── api/          Typed API client (axios)
-│       ├── components/   UI primitives + layout shell
-│       ├── pages/        Page components per domain
-│       ├── store/        Zustand auth store
-│       └── types/        Shared TypeScript types
-│
-├── docker-compose.yml    Full stack (Postgres · Redis · MinIO · API · Worker · Frontend)
-└── .github/workflows/    CI/CD (test → build → push to GHCR)
-```
+## What is EPIMS?
 
-## Core Procurement Lifecycle
+Large enterprises run procurement on SAP — a system that costs crores to license. EPIMS replicates the core SAP MM (Materials Management) workflows using modern open-source technology, with an AI Copilot layer on top.
 
-```
-PR (Draft) → Submit → [Approval Workflow] → Approved
-  → PO Created → Released → [Email to Vendor]
-    → GRN Posted → [Stock: MovementType 101]
-      → Invoice Created → 3-Way Match
-        → MATCHED/WITHIN_TOLERANCE → Approved → Paid
-        → FAILED → DISPUTED → Override (Finance)
-```
+## Core Modules
 
-## Key Technical Decisions
+### Procurement (SAP MM equivalent)
+- **Purchase Requisition (ME51N)** — Create, submit, approve PRs with multi-level workflow
+- **Purchase Order (ME21N)** — Convert approved PRs to POs, release to vendors
+- **Goods Receipt (MIGO)** — Post GRNs against POs, update inventory
+- **3-Way Invoice Match (MIRO)** — Automatic PO × GRN × Invoice verification with tolerance
 
-| Decision | Choice | Why |
-|---|---|---|
-| Async runtime | asyncio + asyncpg | Non-blocking DB; handles 200+ concurrent PR submissions |
-| ORM strategy | SQLAlchemy 2.0 mapped_column | Full type safety, async-native |
-| Session management | Unit of Work | Atomic cross-domain operations (GRN → Stock → PO status) |
-| Event bus | Custom async pub/sub | Decouples notifications from business logic |
-| Auth | JWT HS256 + Redis blacklist | Stateless tokens with instant revocation |
-| Number generation | PostgreSQL sequences | Guaranteed uniqueness without table locks |
-| Task queue | Celery + Redis | Email dispatch, scheduled stock checks, report exports |
-| Frontend state | Zustand (auth) + React Query (server) | Minimal client state; server cache as source of truth |
+### Inventory Management (SAP WM equivalent)
+- Material master with UOM, reorder points, valuation
+- Warehouse and storage location management
+- Stock movements with SAP movement type codes (101, 201, 261...)
+- Low stock alerts
+
+### Finance (SAP FI equivalent)
+- Invoice verification and approval
+- Payment processing
+- Invoice aging dashboard
+
+### Vendor Master (SAP MM Vendor)
+- Complete vendor master with GST, PAN, bank details
+- Vendor rating and performance tracking
+- Approved vendor list management
+
+### AI Procurement Copilot
+- **NL → PR**: "Need 25 Dell laptops for new engineering batch" → structured Purchase Requisition
+- **Vendor Recommendations**: AI scores vendors on price, delivery, quality from historical PO data
+- **Policy Compliance**: Pre-submission check against 10 procurement policy rules
+- **Approval Summary**: Auto-generated executive summary for approvers
+- **Analytics Assistant**: "Which vendors caused the most delays?" → validated SQL → chart
+- **Document Intelligence**: PDF invoice → extracted line items → pre-filled invoice record
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Backend | FastAPI 0.111, Python 3.12, Pydantic v2 |
+| ORM | SQLAlchemy 2.0 async, asyncpg |
+| Database | PostgreSQL 16 |
+| Cache / Queue | Redis 7, Celery 5 |
+| AI | Anthropic Claude (claude-sonnet-4-6) |
+| Frontend | React 18, TypeScript, Vite, Tailwind CSS |
+| State | Zustand, React Query |
+| Auth | JWT HS256 + Redis blacklist |
+| Storage | MinIO (S3-compatible) |
+| Infra | Docker Compose, Nginx, GitHub Actions CI |
+
+## Architecture Highlights
+
+- **Unit of Work + Repository pattern** — clean separation of domain, service, and data layers
+- **Async throughout** — FastAPI + asyncpg + async SQLAlchemy, no sync blocking
+- **State machines** — PR/PO/GRN/Invoice each have enforced status transitions
+- **RBAC** — Role-based access: SUPERUSER, MM_MANAGER, BUYER, FINANCE, WAREHOUSE, APPROVER
+- **Audit trail** — Every state change logged with actor, timestamp, old/new values
+- **AI safety** — SQL whitelist guard, Pydantic output validation, cost tracking, eval framework
+
+## SAP Terminology Mapping
+
+| EPIMS | SAP Equivalent |
+|-------|---------------|
+| Purchase Requisition | ME51N / ME52N / ME53N |
+| Purchase Order | ME21N / ME22N / ME23N |
+| Goods Receipt | MIGO (Movement Type 101) |
+| 3-Way Match | MIRO Invoice Verification |
+| Material Master | MM01 / MM02 / MM03 |
+| Vendor Master | XK01 / XK02 / XK03 |
+| Approval Workflow | SAP Release Strategy |
+| Cost Centre | CO Cost Centre |
+| Movement Types | SAP MM Movement Types |
 
 ## Quick Start
 
 ```bash
-# 1. Start all services
-docker-compose up -d
+# Clone
+git clone https://github.com/raun07/EPIMS.git
+cd EPIMS
 
-# 2. Run migrations
-docker-compose exec api alembic upgrade head
+# Configure environment
+cp backend/.env.example backend/.env
+# Edit backend/.env — set ANTHROPIC_API_KEY for AI features (optional)
 
-# 3. Seed initial data
-docker-compose exec api python -m scripts.seed
+# Start all services
+docker compose up --build -d
 
-# 4. Access
-#   API docs:  http://localhost:8000/docs
-#   Frontend:  http://localhost:80
-#   Flower:    http://localhost:5555
-#   MinIO:     http://localhost:9001
+# Run migrations
+docker compose exec api alembic upgrade head
 
-# Login credentials (from seed)
-#   admin@epims.local / Admin@12345
+# Access
+# Frontend: http://localhost
+# API Docs: http://localhost:8000/docs
+# Login: admin@epims.com / Admin@123456
 ```
 
-## Running Tests
+## Demo Credentials
 
-```bash
-cd backend
-pip install -r requirements-dev.txt
-pytest tests/unit/ -v                # No DB required
-pytest tests/integration/ -v        # Requires Postgres
-```
+| Role | Email | Password |
+|------|-------|----------|
+| System Admin | admin@epims.com | Admin@123456 |
+| Procurement Buyer | buyer@epims.com | Buyer@123456 |
+| Finance Manager | finance@epims.com | Finance@123456 |
+| Warehouse Staff | warehouse@epims.com | Warehouse@123456 |
+| MM Manager | manager@epims.com | Manager@123456 |
 
-## Environment Variables (Backend)
+## Project Structure
+epims/
 
-| Variable | Default | Description |
-|---|---|---|
-| `APP_ENV` | `development` | `development` / `production` |
-| `DATABASE_URL` | — | `postgresql+asyncpg://...` |
-| `REDIS_URL` | — | `redis://...` |
-| `SECRET_KEY` | — | Min 32 chars, random |
-| `ALLOWED_ORIGINS` | `["*"]` | CORS origins JSON array |
-| `SENTRY_DSN` | — | Optional error tracking |
+├── backend/
 
-## RBAC Roles
+│   ├── app/
 
-| Role | Capabilities |
-|---|---|
-| `superuser` | Full system access |
-| `procurement_manager` | PR + PO create/approve, reports |
-| `buyer` | PR/PO create and update |
-| `approver` | Approve PRs and release POs |
-| `warehouse_manager` | GRN post, inventory management |
-| `accounts_payable` | Invoice create, 3-way match, payment |
-| `viewer` | Read-only across all modules |
+│   │   ├── ai/              # AI Copilot — 6 agents, prompts, schemas, SQL validator
 
-## Pending (Phase 4)
+│   │   ├── api/v1/          # FastAPI routers — 8 modules + AI
 
-- [ ] Additional frontend pages: PO detail, GRN create, Invoice verification UI
-- [ ] Approval queue page for approvers
-- [ ] User management admin page
-- [ ] Notification drawer in sidebar
-- [ ] Integration tests with live Postgres
-- [ ] Production deployment guide (Render / Railway / AWS ECS)
+│   │   ├── core/            # UoW, auth, events, exceptions
+
+│   │   ├── domain/          # SQLAlchemy models — 10 domains, 41 tables
+
+│   │   ├── repositories/    # Data access layer
+
+│   │   └── services/        # Business logic — state machines, 3-way match
+
+│   └── alembic/             # Database migrations
+
+├── frontend/
+
+│   └── src/
+
+│       ├── pages/           # 20+ pages including 3 AI pages
+
+│       ├── components/      # Reusable UI + AI components
+
+│       └── api/             # Typed API clients
+
+└── docker-compose.yml
+
+## Built By
+
+**Vaibhav Kumar** — CSE Graduate, Sir M Visvesvaraya Institute of Technology, Bengaluru
+
+[GitHub](https://github.com/raun07) | [LinkedIn](https://linkedin.com/in/vaibhav-kumar)
