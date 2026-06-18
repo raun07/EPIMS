@@ -146,6 +146,5 @@ epims/
 
 ## Built By
 
-**Vaibhav Kumar** — CSE Graduate, Sir M Visvesvaraya Institute of Technology, Bengaluru
-
+**Vaibhav Kumar** 
 
