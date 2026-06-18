@@ -148,4 +148,4 @@ epims/
 
 **Vaibhav Kumar** — CSE Graduate, Sir M Visvesvaraya Institute of Technology, Bengaluru
 
-[GitHub](https://github.com/raun07) | [LinkedIn](https://linkedin.com/in/vaibhav-kumar)
+
