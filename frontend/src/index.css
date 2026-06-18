@@ -1,0 +1,52 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --brand-primary: #6366f1;
+    --brand-navy: #1e1b4b;
+    --surface-bg: #f8f9fb;
+    --surface-card: #ffffff;
+    --surface-border: #e4e7ec;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    @apply bg-surface text-ink font-sans text-sm antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  /* Numeric data: tabular figures */
+  .tabular { font-variant-numeric: tabular-nums; }
+
+  /* Scrollbars */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { @apply bg-surface-border rounded-full; }
+  ::-webkit-scrollbar-thumb:hover { @apply bg-ink-subtle; }
+}
+
+@layer components {
+  /* Status badge variants */
+  .badge {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded text-2xs font-medium uppercase tracking-wide;
+  }
+  .badge-draft    { @apply bg-slate-100 text-slate-500; }
+  .badge-pending  { @apply bg-amber-50 text-amber-600; }
+  .badge-approved { @apply bg-emerald-50 text-emerald-700; }
+  .badge-rejected { @apply bg-red-50 text-red-600; }
+  .badge-released { @apply bg-indigo-50 text-indigo-600; }
+  .badge-received { @apply bg-sky-50 text-sky-600; }
+  .badge-matched  { @apply bg-emerald-50 text-emerald-700; }
+  .badge-disputed { @apply bg-rose-50 text-rose-600; }
+  .badge-paid     { @apply bg-emerald-100 text-emerald-800; }
+  .badge-cancelled{ @apply bg-slate-100 text-slate-400; }
+
+  /* Table cell base */
+  .td { @apply px-4 py-3 text-sm; }
+  .th { @apply px-4 py-2.5 text-2xs font-semibold uppercase tracking-widest text-ink-muted bg-surface; }
+}

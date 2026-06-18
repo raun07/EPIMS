@@ -1,0 +1,151 @@
+version: "3.9"
+
+services:
+  # ── PostgreSQL 16 ─────────────────────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    container_name: epims_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: epims
+      POSTGRES_PASSWORD: epims_dev_password
+      POSTGRES_DB: epims
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U epims"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Redis 7 ───────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: epims_redis
+    restart: unless-stopped
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── MinIO (S3-compatible object store for exports) ─────────────────────────
+  minio:
+    image: minio/minio:latest
+    container_name: epims_minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+
+  # ── FastAPI backend ───────────────────────────────────────────────────────────
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: epims_api
+    restart: unless-stopped
+    environment:
+      APP_ENV: development
+      DATABASE_URL: postgresql+asyncpg://epims:epims_dev_password@db:5432/epims
+      DATABASE_URL_SYNC: postgresql+psycopg2://epims:epims_dev_password@db:5432/epims
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER: redis://redis:6379/1
+      CELERY_BACKEND: redis://redis:6379/2
+      SECRET_KEY: change-me-in-production-use-32-random-chars
+      ALLOWED_ORIGINS: '["http://localhost:5173","http://localhost:80"]'
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin123
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # ── Celery worker ─────────────────────────────────────────────────────────────
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: epims_worker
+    restart: unless-stopped
+    environment:
+      APP_ENV: development
+      DATABASE_URL: postgresql+asyncpg://epims:epims_dev_password@db:5432/epims
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER: redis://redis:6379/1
+      CELERY_BACKEND: redis://redis:6379/2
+      SECRET_KEY: change-me-in-production-use-32-random-chars
+    depends_on:
+      - api
+    volumes:
+      - ./backend:/app
+    command: celery -A app.tasks.celery_app worker --loglevel=info --concurrency=4
+
+  # ── Celery beat (scheduler) ────────────────────────────────────────────────
+  beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: epims_beat
+    restart: unless-stopped
+    environment:
+      APP_ENV: development
+      DATABASE_URL: postgresql+asyncpg://epims:epims_dev_password@db:5432/epims
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER: redis://redis:6379/1
+      CELERY_BACKEND: redis://redis:6379/2
+      SECRET_KEY: change-me-in-production-use-32-random-chars
+    depends_on:
+      - worker
+    volumes:
+      - ./backend:/app
+    command: celery -A app.tasks.celery_app beat --loglevel=info
+
+  # ── Flower (Celery monitoring) ─────────────────────────────────────────────
+  flower:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: epims_flower
+    restart: unless-stopped
+    environment:
+      CELERY_BROKER: redis://redis:6379/1
+    depends_on:
+      - worker
+    ports:
+      - "5555:5555"
+    command: celery -A app.tasks.celery_app flower --port=5555
+
+  # ── React frontend (dev server in dev, nginx in prod) ─────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: epims_frontend
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "80:80"
+
+volumes:
+  postgres_data:
+  minio_data:

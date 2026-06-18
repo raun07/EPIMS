@@ -1,0 +1,51 @@
+# Web Framework
+fastapi==0.111.0
+uvicorn[standard]==0.30.1
+python-multipart==0.0.9
+
+# Database
+sqlalchemy[asyncio]==2.0.31
+asyncpg==0.29.0
+alembic==1.13.2
+
+# Settings & Validation
+pydantic==2.8.2
+pydantic-settings==2.3.4
+pydantic[email]==2.8.2
+
+# Auth
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+
+# Cache & Task Queue
+redis[hiredis]==5.0.7
+celery[redis]==5.4.0
+flower==2.0.1
+
+# HTTP Client (for webhooks)
+httpx==0.27.0
+
+# Email
+aiosmtplib==3.0.1
+jinja2==3.1.4
+
+# Object Storage
+boto3==1.34.144
+botocore==1.34.144
+
+# Utilities
+python-dateutil==2.9.0
+babel==2.15.0
+openpyxl==3.1.5
+reportlab==4.2.2
+
+# Observability
+sentry-sdk[fastapi]==2.10.0
+prometheus-client==0.20.0
+prometheus-fastapi-instrumentator==7.0.0
+
+# Logging
+structlog==24.4.0
+
+# Development utilities
+python-slugify==8.0.4
