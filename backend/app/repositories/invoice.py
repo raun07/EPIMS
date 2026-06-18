@@ -1,8 +1,11 @@
 """Invoice repository."""
 from __future__ import annotations
+
 from uuid import UUID
+
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
+
 from app.domain.invoice.models import Invoice, InvoiceItem, ThreeWayMatchResult
 from app.repositories.base import AbstractRepository
 
@@ -14,11 +17,14 @@ class InvoiceRepository(AbstractRepository[Invoice]):
         return await self.get_by(invoice_number=invoice_number)
 
     async def list(self, *filters, order_by=None, page: int = 1, per_page: int = 20):
+        """Override list to eager load relationships."""
+        from sqlalchemy import select
         stmt = (
             select(Invoice)
             .options(
                 selectinload(Invoice.vendor),
                 selectinload(Invoice.items),
+                selectinload(Invoice.three_way_matches),
             )
             .offset((page - 1) * per_page)
             .limit(per_page)
@@ -32,16 +38,17 @@ class InvoiceRepository(AbstractRepository[Invoice]):
         result = await self.session.execute(stmt)
         return result.scalars().all()
 
-    async def get_with_details(self, invoice_id: UUID) -> Invoice | None:
+    async def get_with_items(self, invoice_id: UUID) -> Invoice | None:
         stmt = (
             select(Invoice)
+            .where(Invoice.id == invoice_id)
             .options(
+                selectinload(Invoice.items).selectinload(InvoiceItem.po_item),
+                selectinload(Invoice.items).selectinload(InvoiceItem.grn_item),
                 selectinload(Invoice.vendor),
                 selectinload(Invoice.po),
-                selectinload(Invoice.items).selectinload(InvoiceItem.po_item),
                 selectinload(Invoice.three_way_matches),
             )
-            .where(Invoice.id == invoice_id)
         )
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
@@ -66,10 +73,3 @@ class InvoiceRepository(AbstractRepository[Invoice]):
         return list(
             await self.list_all(Invoice.status == "DISPUTED")
         )
-
-
-class ThreeWayMatchRepository(AbstractRepository[ThreeWayMatchResult]):
-    model = ThreeWayMatchResult
-
-    async def get_by_invoice(self, invoice_id: UUID) -> ThreeWayMatchResult | None:
-        return await self.get_by(invoice_id=invoice_id)

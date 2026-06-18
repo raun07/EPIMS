@@ -1,11 +1,14 @@
 """Procurement repositories: PR, PO, GRN."""
 from __future__ import annotations
+
 from uuid import UUID
+
 from sqlalchemy import or_, select
 from sqlalchemy.orm import selectinload
+
 from app.domain.procurement.models import (
-    GoodsReceipt,
     GRNItem,
+    GoodsReceipt,
     POItem,
     PRItem,
     PurchaseOrder,
@@ -17,38 +20,41 @@ from app.repositories.base import AbstractRepository
 class PRRepository(AbstractRepository[PurchaseRequisition]):
     model = PurchaseRequisition
 
-    async def list(self, *filters, order_by=None, page: int = 1, per_page: int = 20):
-        stmt = (
-            select(PurchaseRequisition)
-            .options(
-                selectinload(PurchaseRequisition.requester),
-                selectinload(PurchaseRequisition.items).selectinload(PRItem.material),
-                selectinload(PurchaseRequisition.items).selectinload(PRItem.uom),
-            )
-            .offset((page - 1) * per_page)
-            .limit(per_page)
-        )
-        for f in filters:
-            stmt = stmt.where(f)
-        if order_by is not None:
-            stmt = stmt.order_by(order_by)
-        else:
-            stmt = stmt.order_by(PurchaseRequisition.created_at.desc())
-        result = await self.session.execute(stmt)
-        return result.scalars().all()
+    async def get_by_number(self, pr_number: str) -> PurchaseRequisition | None:
+        return await self.get_by(pr_number=pr_number)
 
     async def get_with_items(self, pr_id: UUID) -> PurchaseRequisition | None:
         stmt = (
             select(PurchaseRequisition)
+            .where(PurchaseRequisition.id == pr_id)
             .options(
-                selectinload(PurchaseRequisition.requester),
                 selectinload(PurchaseRequisition.items).selectinload(PRItem.material),
                 selectinload(PurchaseRequisition.items).selectinload(PRItem.uom),
+                selectinload(PurchaseRequisition.requester),
             )
-            .where(PurchaseRequisition.id == pr_id)
         )
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
+
+    async def get_by_requester(
+        self, user_id: UUID, page: int = 1, per_page: int = 20
+    ) -> list[PurchaseRequisition]:
+        return list(
+            await self.list(
+                PurchaseRequisition.requested_by == user_id,
+                order_by=PurchaseRequisition.created_at.desc(),
+                page=page,
+                per_page=per_page,
+            )
+        )
+
+    async def get_pending_approval(self) -> list[PurchaseRequisition]:
+        return list(
+            await self.list_all(
+                PurchaseRequisition.status == "PENDING_APPROVAL",
+                order_by=PurchaseRequisition.created_at,
+            )
+        )
 
     async def search(self, query: str, status: str | None = None,
                      page: int = 1, per_page: int = 20) -> list[PurchaseRequisition]:
@@ -75,47 +81,59 @@ class PRRepository(AbstractRepository[PurchaseRequisition]):
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
-    async def get_by_number(self, pr_number: str) -> PurchaseRequisition | None:
-        return await self.get_by(pr_number=pr_number)
-
-    async def count_by_status(self, status: str) -> int:
-        return await self.count(PurchaseRequisition.status == status)
-
 
 class PORepository(AbstractRepository[PurchaseOrder]):
     model = PurchaseOrder
 
-    async def list(self, *filters, order_by=None, page: int = 1, per_page: int = 20):
-        stmt = (
-            select(PurchaseOrder)
-            .options(
-                selectinload(PurchaseOrder.vendor),
-                selectinload(PurchaseOrder.items).selectinload(POItem.material),
-            )
-            .offset((page - 1) * per_page)
-            .limit(per_page)
-        )
-        for f in filters:
-            stmt = stmt.where(f)
-        if order_by is not None:
-            stmt = stmt.order_by(order_by)
-        else:
-            stmt = stmt.order_by(PurchaseOrder.created_at.desc())
-        result = await self.session.execute(stmt)
-        return result.scalars().all()
+    async def get_by_number(self, po_number: str) -> PurchaseOrder | None:
+        return await self.get_by(po_number=po_number)
 
     async def get_with_items(self, po_id: UUID) -> PurchaseOrder | None:
         stmt = (
             select(PurchaseOrder)
+            .where(PurchaseOrder.id == po_id)
             .options(
-                selectinload(PurchaseOrder.vendor),
                 selectinload(PurchaseOrder.items).selectinload(POItem.material),
                 selectinload(PurchaseOrder.items).selectinload(POItem.uom),
+                selectinload(PurchaseOrder.vendor),
+                selectinload(PurchaseOrder.pr),
+                selectinload(PurchaseOrder.created_by_user),
             )
-            .where(PurchaseOrder.id == po_id)
         )
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
+
+    async def get_by_vendor(
+        self, vendor_id: UUID, page: int = 1, per_page: int = 20
+    ) -> list[PurchaseOrder]:
+        return list(
+            await self.list(
+                PurchaseOrder.vendor_id == vendor_id,
+                order_by=PurchaseOrder.created_at.desc(),
+                page=page,
+                per_page=per_page,
+            )
+        )
+
+    async def get_open_orders(self) -> list[PurchaseOrder]:
+        return list(
+            await self.list_all(
+                PurchaseOrder.status.in_(["RELEASED", "SENT", "PARTIALLY_RECEIVED"]),
+                order_by=PurchaseOrder.delivery_date,
+            )
+        )
+
+    async def get_overdue(self) -> list[PurchaseOrder]:
+        from datetime import date
+        from sqlalchemy import func
+
+        return list(
+            await self.list_all(
+                PurchaseOrder.status.in_(["RELEASED", "SENT"]),
+                PurchaseOrder.delivery_date < date.today(),
+                order_by=PurchaseOrder.delivery_date,
+            )
+        )
 
     async def search(self, query: str, status: str | None = None,
                      vendor_id: UUID | None = None,
@@ -139,31 +157,24 @@ class PORepository(AbstractRepository[PurchaseOrder]):
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
-    async def get_by_number(self, po_number: str) -> PurchaseOrder | None:
-        return await self.get_by(po_number=po_number)
-
-    async def get_open_value(self) -> float:
-        from sqlalchemy import func
-        result = await self.session.execute(
-            select(func.sum(PurchaseOrder.total_amount)).where(
-                PurchaseOrder.status.in_(["RELEASED", "SENT", "PARTIALLY_RECEIVED"])
-            )
-        )
-        return float(result.scalar_one() or 0)
-
 
 class GRNRepository(AbstractRepository[GoodsReceipt]):
     model = GoodsReceipt
 
+    async def get_by_number(self, grn_number: str) -> GoodsReceipt | None:
+        return await self.get_by(grn_number=grn_number)
+
     async def get_with_items(self, grn_id: UUID) -> GoodsReceipt | None:
         stmt = (
             select(GoodsReceipt)
+            .where(GoodsReceipt.id == grn_id)
             .options(
                 selectinload(GoodsReceipt.items).selectinload(GRNItem.material),
+                selectinload(GoodsReceipt.items).selectinload(GRNItem.uom),
                 selectinload(GoodsReceipt.po),
                 selectinload(GoodsReceipt.vendor),
+                selectinload(GoodsReceipt.warehouse),
             )
-            .where(GoodsReceipt.id == grn_id)
         )
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
@@ -176,5 +187,10 @@ class GRNRepository(AbstractRepository[GoodsReceipt]):
             )
         )
 
-    async def get_by_number(self, grn_number: str) -> GoodsReceipt | None:
-        return await self.get_by(grn_number=grn_number)
+    async def get_posted_by_po(self, po_id: UUID) -> list[GoodsReceipt]:
+        return list(
+            await self.list_all(
+                GoodsReceipt.po_id == po_id,
+                GoodsReceipt.status == "POSTED",
+            )
+        )
